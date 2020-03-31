@@ -1,0 +1,126 @@
+--Full Stations
+SELECT COUNT(end_date) as frequency, EXTRACT(HOUR FROM end_date) as Hour, EXTRACT(dayofweek FROM end_date) as Weekday, end_date, end_station_name
+FROM `bigquery-public-data.london_bicycles.cycle_hire` as hire
+join `bigquery-public-data.london_bicycles.cycle_stations` as stations
+ON stations.name = hire.start_station_name
+where stations.nbEmptyDocks = 0
+group by end_date, end_station_name
+ORDER BY frequency DESC
+
+--Total Hours per bike
+SELECT bike_id, sum( duration)/3600 as total_hours
+FROM `bigquery-public-data.london_bicycles.cycle_hire` 
+group by bike_id
+order by total_hours
+
+--Duration
+SELECT round(duration/60,2) as duration, start_date
+FROM `bigquery-public-data.london_bicycles.cycle_hire`
+where round(duration)/60 >0;
+
+SELECT EXTRACT(DATE FROM start_date) as Day, count(duration) as number_of_trips
+FROM `bigquery-public-data.london_bicycles.cycle_hire`
+where round(duration)/60 >0
+group by Day
+order by Day desc;
+
+--Fill Rate
+SELECT name, bikes_count/ docks_count as Fill_Rate, start_date
+FROM `bigquery-public-data.london_bicycles.cycle_stations` as stations
+JOIN `bigquery-public-data.london_bicycles.cycle_hire` as hire
+ON stations.name = hire.start_station_name;
+
+--Most popular Station to start rides of all time
+SELECT start_station_name, count(start_station_name) as count
+FROM `bigquery-public-data.london_bicycles.cycle_hire`
+group by start_station_name
+order by count desc
+limit 1;
+
+--Empty Stations
+select count(stations.id) as empty_stations, start_date
+FROM `bigquery-public-data.london_bicycles.cycle_stations` as stations
+JOIN `bigquery-public-data.london_bicycles.cycle_hire` as hire
+ON stations.name = hire.start_station_name
+where stations.bikes_count = 0 
+group by start_date
+
+--Stations at Capacity
+select count(stations.id) as at_capacity_stations, start_date
+FROM `bigquery-public-data.london_bicycles.cycle_stations` as stations
+JOIN `bigquery-public-data.london_bicycles.cycle_hire` as hire
+ON stations.name = hire.start_station_name
+where stations. nbEmptyDocks = 0
+group by start_date
+
+--Out of Order Stations
+select count(stations.id) as locked_stations, start_date
+FROM `bigquery-public-data.london_bicycles.cycle_stations` as stations
+JOIN `bigquery-public-data.london_bicycles.cycle_hire` as hire
+ON stations.name = hire.start_station_name
+where stations.locked = 'true'
+group by start_date;
+
+--Most frequent trips
+SELECT DISTINCT start_station_name as Start_Station, end_station_name as End_Station, COUNT(start_station_name) as frequency
+FROM `bigquery-public-data.london_bicycles.cycle_hire`
+GROUP BY start_station_name, end_station_name
+ORDER BY frequency DESC
+LIMIT 3
+
+--Most Popular Stations to start a ride
+SELECT DISTINCT start_station_name as Start_Station, COUNT(start_station_name) as frequency, start_date
+FROM `bigquery-public-data.london_bicycles.cycle_hire`
+GROUP BY start_station_name, start_date
+ORDER BY frequency DESC
+
+--Most Popular Stations to end a ride
+SELECT DISTINCT end_station_name as Start_Station, COUNT(end_station_name) as frequency, end_date
+FROM `bigquery-public-data.london_bicycles.cycle_hire`
+GROUP BY end_station_name, end_date
+ORDER BY frequency DESC
+
+--Which stations are more likely to have no bikes? At what time?
+SELECT EXTRACT(HOUR FROM start_date ) AS Hour, COUNT(EXTRACT(HOUR FROM start_date )) as Frequency, start_station_name
+FROM `bigquery-public-data.london_bicycles.cycle_stations` as s
+JOIN `bigquery-public-data.london_bicycles.cycle_hire` as t
+ON s.name = t.start_station_name
+WHERE bikes_count = 0 
+GROUP BY hour, start_station_name
+ORDER BY frequency DESC
+
+--Usage Peaks
+SELECT
+  EXTRACT(HOUR FROM start_date ) AS HOUR, COUNT(EXTRACT(HOUR FROM start_date )) AS HOURS_COUNT, start_station_name
+FROM `bigquery-public-data.london_bicycles.cycle_hire`
+WHERE  EXTRACT(HOUR FROM start_date ) IS NOT NULL
+GROUP BY HOUR, start_station_name
+ORDER BY HOURS_COUNT DESC;
+
+--Number of trips per duration (in minutes)
+SELECT ROUND((duration/60),2) as trip_minutes, count(duration/60) as trip_count
+FROM `bigquery-public-data.london_bicycles.cycle_hire`
+WHERE duration/60 <20 and duration >0
+GROUP BY trip_minutes
+ORDER BY trip_minutes;
+
+--GeoViz 
+SELECT
+  ST_GeogPoint(longitude, latitude)  AS WKT,
+  bikes_count
+FROM
+  `bigquery-public-data.london_bicycles.cycle_stations`
+
+--Which stations are more likely to have no bikes? At what time?
+SELECT EXTRACT(dayofweek FROM start_date ) AS Day, EXTRACT(HOUR FROM start_date ) AS Hour, COUNT(EXTRACT(HOUR FROM start_date )) as Count, start_station_name as Station
+FROM `bigquery-public-data.london_bicycles.cycle_stations` as s
+JOIN `bigquery-public-data.london_bicycles.cycle_hire` as t
+ON s.name = t.start_station_name
+WHERE bikes_count = 0 
+GROUP BY day, hour, start_station_name
+ORDER BY Count DESC
+
+--Timestamp Extraction
+SELECT EXTRACT(DATE FROM CURRENT_TIMESTAMP()) AS Day, round(max( duration)/60,2) as Average_Duration
+FROM `bigquery-public-data.london_bicycles.cycle_hire`
+where EXTRACT(DATE FROM CURRENT_TIMESTAMP()) = EXTRACT(DATE FROM start_date) and duration!=0 and EXTRACT(DATE FROM start_date) is not null;
